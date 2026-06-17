@@ -259,3 +259,35 @@ class TestStopCommand:
 
         main(["stop"])
         mock_run.assert_called_once()
+
+
+class TestRunClientExitCodes:
+    """Contrat de code de sortie de _run_client (sémantique de relance systemd).
+
+    - Arrêt volontaire (run() se termine / annulé par SIGTERM) → exit 0.
+    - Erreur fatale → exit 3 (systemd relance).
+    """
+
+    @patch("simforge_agent.cli.AgentClient")
+    def test_arret_propre_exit_0(self, mock_client_cls):
+        async def _noop():
+            return None
+
+        mock_client_cls.return_value.run.return_value = _noop()
+        with pytest.raises(SystemExit) as exc:
+            from simforge_agent.cli import _run_client
+
+            _run_client("https://hub.example.com", "key", "tok")
+        assert exc.value.code == 0
+
+    @patch("simforge_agent.cli.AgentClient")
+    def test_erreur_fatale_exit_3(self, mock_client_cls):
+        async def _boom():
+            raise RuntimeError("connexion impossible")
+
+        mock_client_cls.return_value.run.return_value = _boom()
+        with pytest.raises(SystemExit) as exc:
+            from simforge_agent.cli import _run_client
+
+            _run_client("https://hub.example.com", "key", "tok")
+        assert exc.value.code == 3

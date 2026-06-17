@@ -50,6 +50,35 @@ Le token d'enrôlement se récupère depuis l'UI **Fleets** de la plateforme. Il
 | `--agent-key` | Clé d'agent (prime sur `config.json`) |
 | `--cluster-token` | Token de cluster (prime sur `config.json`) |
 
+## Exécution en service (systemd) — recommandé en production
+
+En production, l'agent doit survivre aux crashs, aux coupures réseau et aux
+redémarrages du serveur. Un service systemd le supervise et le relance
+automatiquement. Une unit prête à l'emploi est fournie dans
+[`packaging/simforge-agent.service`](./packaging/simforge-agent.service).
+
+```bash
+# 1. Enrôler d'abord (écrit /etc/simforge-agent/config.json)
+sudo simforge-agent enroll https://hub.example.com <ENROLLMENT_TOKEN>
+
+# 2. Installer l'unit (ajuster ExecStart si `which simforge-agent` diffère)
+sudo cp packaging/simforge-agent.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
+# 3. Démarrer au boot + maintenant
+sudo systemctl enable --now simforge-agent
+
+# Suivi des logs
+journalctl -u simforge-agent -f
+```
+
+Garanties apportées :
+
+- **Relance automatique** (`Restart=always`) après crash, perte réseau ou reboot.
+- **Arrêt propre** : `systemctl stop` envoie `SIGTERM`, que l'agent intercepte
+  pour fermer la connexion WebSocket avant de quitter (code de sortie `0`).
+- **Persistance au boot** (`WantedBy=multi-user.target`).
+
 ## Configuration
 
 L'agent persiste sa config dans :

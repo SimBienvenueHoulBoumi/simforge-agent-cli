@@ -1,0 +1,25 @@
+[Unit]
+Description=SimForge Agent — connexion sécurisée à la plateforme SimDevForge
+Documentation=https://github.com/SimBienvenueHoulBoumi/simforge-agent-cli
+After=network-online.target
+Wants=network-online.target
+# Ne jamais abandonner les redémarrages, même après des échecs répétés.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# Adapter le chemin si besoin : `which simforge-agent`
+ExecStart=/usr/local/bin/simforge-agent start
+# L'agent gère SIGTERM → fermeture WebSocket propre avant l'arrêt.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+# Relance automatique après crash, perte réseau ou redémarrage du serveur.
+Restart=always
+RestartSec=5
+# Journalisation via journald : `journalctl -u simforge-agent -f`
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=simforge-agent
+
+[Install]
+WantedBy=multi-user.target

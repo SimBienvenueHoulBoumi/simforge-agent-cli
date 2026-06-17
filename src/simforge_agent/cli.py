@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import logging
 import os
+import signal
 import subprocess
 import sys
 from typing import NoReturn
@@ -297,9 +298,16 @@ def _run_client(
     cluster_token: str,
     heartbeat_interval: int = 30,
 ) -> NoReturn:
-    """Lance la boucle AgentClient (ne retourne jamais)."""
-    try:
-        asyncio.run(
+    """Lance la boucle AgentClient (ne retourne jamais).
+
+    Gère SIGTERM (envoyé par `systemctl stop`/`restart`) ET SIGINT (Ctrl-C)
+    pour un arrêt propre : annulation de la boucle, fermeture WebSocket nette,
+    et code de sortie 0 — indispensable pour que systemd considère l'arrêt
+    comme volontaire et ne déclenche pas un redémarrage en boucle.
+    """
+
+    async def _supervise() -> None:
+        runner = asyncio.ensure_future(
             AgentClient(
                 server_url=server_url,
                 agent_key=agent_key,
@@ -307,12 +315,25 @@ def _run_client(
                 heartbeat_interval=heartbeat_interval,
             ).run()
         )
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                loop.add_signal_handler(sig, runner.cancel)
+            except (NotImplementedError, RuntimeError):
+                pass  # add_signal_handler indisponible (ex: Windows)
+        try:
+            await runner
+        except asyncio.CancelledError:
+            logger.info("Arrêt propre (signal reçu)")
+
+    try:
+        asyncio.run(_supervise())
     except KeyboardInterrupt:
         logger.info("Arrêt demandé par l'utilisateur")
-        sys.exit(0)
     except Exception as exc:
         logger.exception("Erreur fatale : %s", exc)
         sys.exit(3)
+    sys.exit(0)
 
 
 # ── Parser argparse ───────────────────────────────────────────────────────────
