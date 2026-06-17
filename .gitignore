@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.whl
+
+# Tests / tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Agent runtime (ne jamais committer : contient des tokens)
+config.json
+/etc/simforge-agent/
+*.local
+
+# OS / éditeurs
+.DS_Store
+.idea/
+.vscode/
